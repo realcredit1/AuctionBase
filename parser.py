@@ -51,6 +51,8 @@ Returns true if a file ends in .xml
 def isXml(f):
     return len(f) > 4 and f[-4:] == '.xml'
 
+
+# DOM traversal
 """
 Non-recursive (NR) version of dom.getElementsByTagName(...)
 """
@@ -99,6 +101,10 @@ def getElementTextByTagNameNR(elem, tagName):
         return pcdata(curElem)
     return ''
 
+
+
+# String formatting
+
 """
 Converts month to a number, e.g. 'Dec' to '12'
 """
@@ -121,11 +127,56 @@ def transformDttm(dttm):
 """
 Transform a dollar value amount from a string like $3,453.23 to XXXXX.xx
 """
-
 def transformDollar(money):
     if money == None or len(money) == 0:
         return money
     return sub(r'[^\d.]', '', money)
+
+
+
+# Initialize output files, one for each relation/table
+item_file = open('item.dat', 'w')
+category_file = open('category.dat', 'w')
+user_file = open('user.dat', 'w')
+bid_file = open('bid.dat', 'w')
+
+# Write one line to the file corresponding to one tuple with the given attributes
+# Attributes are written in order, separated by delimiter '<>'
+def writeLine(dataFile, attributes):
+    line = columnSeparator.join(attributes)
+    dataFile.write(line)
+    dataFile.write('\n')
+
+
+def itemTuple(item):
+    itemID = item.getAttribute('ItemID')
+    sellerID = item.getElementsByTagName('Seller')[0].getAttribute('UserID')
+    name = getElementTextByTagNameNR(item,'Name')
+    currently = transformDollar(getElementTextByTagNameNR(item,'Currently'))
+    buy_price = transformDollar(getElementTextByTagNameNR(item,'Buy_Price'))
+    if (buy_price == ''): buy_price = 'NULL'
+    first_bid = transformDollar(getElementTextByTagNameNR(item, 'First_Bid'))
+    started = transformDttm(getElementTextByTagNameNR(item, 'Started'))
+    ends = transformDttm(getElementTextByTagNameNR(item, 'Ends'))
+    description = getElementTextByTagNameNR(item, 'Description')
+
+    return [itemID, sellerID, name, currently, buy_price, first_bid, started, ends, description]
+
+def sellerTuple(item, seller):
+    sellerID = seller.getAttribute('UserID')
+    rating = seller.getAttribute('Rating')
+    location = getElementTextByTagNameNR(item, 'Location')
+    country = getElementTextByTagNameNR(item, 'Country')
+    return [sellerID, rating, location, country]
+
+def bidTuple(bid):
+    bidder = bid.getElementsByTagName('Bidder')[0]
+    userID = bidder.getAttribute('UserID')
+    rating = bidder.getAttribute('Rating')
+    time = transformDttm(getElementTextByTagNameNR(bid, 'Time'))
+    amount = transformDollar(getElementTextByTagNameNR(bid, 'Amount'))
+    return [userID, rating, time, amount]
+
 
 """
 Parses a single xml file. Currently, there's a loop that shows how to parse
@@ -136,6 +187,53 @@ def parseXml(f):
     """
     TO DO: traverse the dom tree to extract information for your SQL tables
     """
+
+    Items = dom.getElementsByTagName('Item')
+    sellers = []
+    users = {}
+
+    for item in Items:
+
+        # write tuple into Item table
+        item_tuple = itemTuple(item)
+        itemID = item_tuple[0]
+        writeLine(item_file, itemTuple(item))
+
+        # write all tuples into Category table
+        for node in item.getElementsByTagName('Category'):
+            writeLine(category_file, [itemID, getElementText(node)])
+
+        # get seller information
+        seller = item.getElementsByTagName('Seller')[0]
+        seller_tuple = sellerTuple(item, seller)
+        sellerID = seller_tuple[0]
+
+        # Keep track of previously encountered sellers
+        if (sellerID not in sellers):
+            sellers.append(sellerID)
+
+            # If user is both bidder and seller, use seller data
+            if (sellerID in users): del users[sellerID]
+            
+            # write tuple into User table
+            writeLine(user_file, seller_tuple)
+
+
+        # write all tuples into Bid table
+        for bid in item.getElementsByTagName('Bid'):
+            bid_tuple = bidTuple(bid)
+            userID = bid_tuple[0]
+            writeLine(bid_file, bid_tuple)
+
+            # store bidderID for later processing
+            if (userID not in sellers): users[userID] = bid_tuple[1]
+
+    # after all items have been processed, write user tuples for
+    # remaining bidderIDs that were not also sellerIDs
+    for userID in users.keys():
+        writeLine(user_file, [userID, users[userID], 'NULL', 'NULL'])
+
+
 
 """
 Loops through each xml files provided on the command line and passes each file
