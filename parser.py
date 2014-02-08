@@ -148,7 +148,7 @@ def writeLine(dataFile, attributes):
     dataFile.write('\n')
 
 
-def itemTuple(item):
+def writeItem(item):
     itemID = item.getAttribute('ItemID')
     sellerID = item.getElementsByTagName('Seller')[0].getAttribute('UserID')
     name = getElementTextByTagNameNR(item,'Name')
@@ -160,23 +160,54 @@ def itemTuple(item):
     ends = transformDttm(getElementTextByTagNameNR(item, 'Ends'))
     description = getElementTextByTagNameNR(item, 'Description')
 
-    return [itemID, sellerID, name, currently, buy_price, first_bid, started, ends, description]
+    writeLine(item_file, [itemID, sellerID, name, currently, buy_price, first_bid, started, ends, description])
 
-def sellerTuple(item, seller):
-    sellerID = seller.getAttribute('UserID')
+
+def writeSeller(item):
+    seller = item.getElementsByTagName('Seller')[0]
+    userID = seller.getAttribute('UserID')
     rating = seller.getAttribute('Rating')
     location = getElementTextByTagNameNR(item, 'Location')
     country = getElementTextByTagNameNR(item, 'Country')
-    return [sellerID, rating, location, country]
+    writeLine(user_file, [userID, rating, location, country])
 
-def bidTuple(bid):
+
+def writeBid(bid):
     bidder = bid.getElementsByTagName('Bidder')[0]
     userID = bidder.getAttribute('UserID')
     rating = bidder.getAttribute('Rating')
     time = transformDttm(getElementTextByTagNameNR(bid, 'Time'))
     amount = transformDollar(getElementTextByTagNameNR(bid, 'Amount'))
-    return [userID, rating, time, amount]
+    writeLine(bid_file, [userID, rating, time, amount])
 
+
+def sellerID(item):
+    return item.getElementsByTagName('Seller')[0].getAttribute('UserID')
+
+def bidderID(bid):
+    return bid.getElementsByTagName('Bidder')[0].getAttribute('UserID')
+
+def bidderRating(bid):
+    return bid.getElementsByTagName('Bidder')[0].getAttribute('Rating')
+
+def writeCategories(item):
+    itemID = item.getAttribute('ItemID')
+    categories = []
+    for node in item.getElementsByTagName('Category'):
+        category = getElementText(node)
+        if (category not in categories):
+            categories.append(category)
+            writeLine(category_file, [itemID, category])
+
+
+def writeNonSellers():
+    for userID in users.keys():
+        writeLine(user_file, [userID, users[userID], 'NULL', 'NULL'])
+
+
+
+sellers = []
+users = {}
 
 """
 Parses a single xml file. Currently, there's a loop that shows how to parse
@@ -189,49 +220,31 @@ def parseXml(f):
     """
 
     Items = dom.getElementsByTagName('Item')
-    sellers = []
-    users = {}
+
 
     for item in Items:
 
         # write tuple into Item table
-        item_tuple = itemTuple(item)
-        itemID = item_tuple[0]
-        writeLine(item_file, itemTuple(item))
+        writeItem(item)
 
         # write all tuples into Category table
-        for node in item.getElementsByTagName('Category'):
-            writeLine(category_file, [itemID, getElementText(node)])
-
-        # get seller information
-        seller = item.getElementsByTagName('Seller')[0]
-        seller_tuple = sellerTuple(item, seller)
-        sellerID = seller_tuple[0]
+        writeCategories(item)
 
         # Keep track of previously encountered sellers
-        if (sellerID not in sellers):
-            sellers.append(sellerID)
-
-            # If user is both bidder and seller, use seller data
-            if (sellerID in users): del users[sellerID]
-            
-            # write tuple into User table
-            writeLine(user_file, seller_tuple)
+        if (sellerID(item) not in sellers):
+            sellers.append(sellerID(item))
+            if (sellerID(item) in users): del users[sellerID(item)] # If user both bidder/seller, use seller
+            writeSeller(item) # write tuple into User table
 
 
         # write all tuples into Bid table
         for bid in item.getElementsByTagName('Bid'):
-            bid_tuple = bidTuple(bid)
-            userID = bid_tuple[0]
-            writeLine(bid_file, bid_tuple)
+            writeBid(bid)
 
             # store bidderID for later processing
-            if (userID not in sellers): users[userID] = bid_tuple[1]
+            if (bidderID(bid) not in sellers): 
+                users[bidderID(bid)] = bidderRating(bid)
 
-    # after all items have been processed, write user tuples for
-    # remaining bidderIDs that were not also sellerIDs
-    for userID in users.keys():
-        writeLine(user_file, [userID, users[userID], 'NULL', 'NULL'])
 
 
 
@@ -248,6 +261,10 @@ def main(argv):
         if isXml(f):
             parseXml(f)
             print "Success parsing " + f
+
+    # after all items have been processed, write user tuples for
+    # remaining bidderIDs that were not also sellerIDs
+    writeNonSellers()
 
 if __name__ == '__main__':
     main(sys.argv)
