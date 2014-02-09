@@ -14,6 +14,14 @@ select itemID from Bid where itemID not in (select itemID from Item);
 select userID from Bid where userID not in (select userID from User);
 select userID from Item where userID not in (select userID from User);
 
+-- Row-Level Check
+-- start time is before end time
+select * from Item where (started > ends);
+-- buy price is greater than first bid
+select * from Item where (buy_price < first_bid);
+-- first bid is greater than zero
+select * from Item where (first_bid <= 0);
+
 -- Triggers:
 -- cannot place bid on own item
 select * from Bid natural join Item where (Bid.userID == Item.userID);
@@ -30,3 +38,5 @@ select * from Bid join Item on (Bid.itemID == Item.itemID) where(amount < first_
 select * from Bid B1 join Bid B2 on (B1.itemID == B2.itemID) where(B1.time > B2.time and B1.amount < B2.amount);
 -- current price of item is amount of most recent Bid
 select * from (select Item.itemID, Item.currently, max(Bid.amount) as maxBid from Item join Bid on (Item.itemID == Bid.itemID) group by Item.itemID) where (currently != maxBid);
+-- if no bids, currently = first_bid
+select * from Item where (itemID not in (select itemID from Bid)) and (currently != first_bid);
