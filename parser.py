@@ -1,6 +1,6 @@
 
 """
-FILE: skeleton_parser.py
+FILE: parser.py
 ------------------
 Author: Garrett Schlesinger (gschles@cs.stanford.edu)
 Author: Chenyu Yang (chenyuy@stanford.edu)
@@ -160,7 +160,7 @@ def writeItem(item):
     ends = transformDttm(getElementTextByTagNameNR(item, 'Ends'))
     description = getElementTextByTagNameNR(item, 'Description')
 
-    writeLine(item_file, [itemID, sellerID, name, currently, buy_price, first_bid, started, ends, description])
+    writeLine(item_file, [itemID, name, currently, buy_price, first_bid, started, ends, sellerID, description])
 
 
 def writeSeller(item):
@@ -172,14 +172,16 @@ def writeSeller(item):
     writeLine(user_file, [userID, rating, location, country])
 
 
-def writeBid(bid):
+def writeBid(bid, itemID):
     bidder = bid.getElementsByTagName('Bidder')[0]
     userID = bidder.getAttribute('UserID')
-    rating = bidder.getAttribute('Rating')
     time = transformDttm(getElementTextByTagNameNR(bid, 'Time'))
     amount = transformDollar(getElementTextByTagNameNR(bid, 'Amount'))
-    writeLine(bid_file, [userID, rating, time, amount])
+    writeLine(bid_file, [itemID, userID, time, amount])
 
+
+def itemID(item):
+    return item.getAttribute('ItemID')
 
 def sellerID(item):
     return item.getElementsByTagName('Seller')[0].getAttribute('UserID')
@@ -239,7 +241,7 @@ def parseXml(f):
 
         # write all tuples into Bid table
         for bid in item.getElementsByTagName('Bid'):
-            writeBid(bid)
+            writeBid(bid, itemID(item))
 
             # store bidderID for later processing
             if (bidderID(bid) not in sellers): 
