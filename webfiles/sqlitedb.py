@@ -1,7 +1,7 @@
 import web
 
 db = web.database(dbn='sqlite',
-        db='[YOUR SQLite DATABASE FILENAME]' #TODO: add your SQLite database filename
+        db='auctionDB.db'
     )
 
 ######################BEGIN HELPER METHODS######################
@@ -74,3 +74,6 @@ def query(query_string, vars = {}):
 
 #TODO: additional methods to interact with your database,
 # e.g. to update the current time
+
+def updateTime(new_time):
+    # TODO

@@ -1,0 +1,33 @@
+PRIMARY KEY/UNIQUE
+	- all items are unique
+		itemID PRIMARY KEY for Item
+	- all users are unique
+		userID PRIMARY KEY for User
+	- an item is listed for a particular category only once
+		(itemID, category) PRIMARY KEY for Category
+	- no simultaneous bids on one item
+		(itemID, time) PRIMARY KEY for Bid
+
+REFERENTIAL INTEGRITY
+	- all categories are associated with actual items
+		Category(itemID) references Item(itemID)
+	- all bids are on actual items
+		Bid(itemID) references Item(itemID)
+	- all sellers are users
+		Item(userID) references User(userID)
+	- all bidders are users
+		Bid(userID) references User(userID)
+
+ROW-LEVEL CHECK
+	- first_bid > zero
+	- buy_price > 0, > first_bid or NULL
+	- auction end time is after auction start time
+
+TRIGGERS
+	- cannot place bid on own item
+	- all bids occur before current time
+	- no bids on closed auctions
+	- no bids greater than buy price
+	- first bid must be greater than starting price
+	- bids on one item must increase in amount over time
+	- current price of item is amount of most recent Bid or first_bid if no bids
