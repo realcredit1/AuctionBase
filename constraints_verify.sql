@@ -25,7 +25,7 @@ select * from Item where (first_bid <= 0);
 -- Triggers:
 -- cannot place bid on own item
 select * from Bid natural join Item where (Bid.userID == Item.userID);
--- all bids occur before current time
+-- !!! all bids occur before current time
 select * from Bid where time > (select currtime from Time);
 -- no bids on closed auctions
 select * from Bid join Item on (Bid.itemID == Item.itemID) where (time < started);
